@@ -1,0 +1,184 @@
+---
+title: #Tabula Assignment
+#April 16, 2019
+#Advanced Reporting, School of Journalism
+#Brooke Tomlin 
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(rio)
+library(janitor)
+library(formattable)
+```
+
+```{r}
+x <- rio::import ("https://docs.google.com/spreadsheets/d/1u1w4Xd28Kp7v5BeKNmhNkjU3eRmt-uzzm5YKd70Y4Ms/edit#gid=1292931470")
+```
+
+
+```{r}
+UA2015_19 <- as.data.frame(t(x))
+```
+
+```{r}
+UA2015_19 <- UA2015_19 %>%
+  row_to_names(row_number = 1)
+UA2015_19
+```
+
+```{r}
+colnames(UA2015_19)[1] <- "Year"
+UA2015_19[1:4] <- lapply(UA2015_19[1:4], as.character)
+glimpse(UA2015_19)
+```
+
+```{r}
+library(janitor)
+UA2015_19 <- janitor::clean_names(UA2015_19)
+head(UA2015_19)
+```
+
+```{r}
+UA2015_19$in_state <- as.numeric(gsub(",", "", UA2015_19$in_state))
+UA2015_19$out_of_state <- as.numeric(gsub(",", "", UA2015_19$out_of_state))
+UA2015_19$international <- as.numeric(gsub(",", "", UA2015_19$international))
+UA2015_19
+```
+
+
+```{r}
+UA2015_19 <- UA2015_19 %>%
+  mutate(pct_chg = (in_state/lag(in_state)-1))
+UA2015_19
+```
+
+```{r}
+UA2015_19 <- UA2015_19 %>%
+  mutate(total = in_state + out_of_state + international)
+UA2015_19
+```
+
+```{r}
+#Format into percents
+UA2015_19$pct_chg <- percent(UA2015_19$pct_chg)
+```
+
+```{r}
+UA2015_19 %>% 
+  ggplot(aes(x = year, y = pct_chg, fill = pct_chg)) +
+  geom_col(position = "dodge", show.legend = FALSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_text(aes(label = pct_chg), hjust = -.5, size = 2) +
+  #scale_y_continuous(limits=c(0, .10),labels = scales::percent) +
+  coord_flip() +
+  labs(title = "Percent Change in UofA Enrollment, 2015-2019",
+       subtitle = "U of A Enrollment",
+       caption = "Graphic by Brooke Tomlin, 4-16-2020",
+       y="Source: UA Annual Report",
+       x="")
+UA2015_19
+```
+
+```{r}
+#Import Zillow Data
+Zillow <- rio::import('https://docs.google.com/spreadsheets/d/1l_kzd_BN_F-kI3c3p3_VB3mdqYxRWADvIxOiBsj93GQ/edit#gid=819464580')
+```
+
+```{r}
+ZillowFay <- Zillow %>% filter(RegionName == "Fayetteville, AR")
+head(ZillowFay)
+```
+
+
+```{r}
+# Number columns
+ncol(ZillowFay)
+```
+
+```{r}
+# Number rows
+nrow(ZillowFay)
+```
+```{r}
+#check data types
+glimpse(ZillowFay)
+```
+
+```{r}
+#Clean Headers - Janitor package
+#install.packages("janitor")
+library(janitor)
+ZillowFay <- janitor::clean_names(ZillowFay)
+head(ZillowFay)
+```
+
+```{r}
+#Run stats on latest January 2020 data
+summary(ZillowFay$x2020_01)
+```   
+
+### Percent Change, 9/2010 to 1/2020
+
+```{r}
+ZillowP <- ZillowFay %>%
+  mutate(Total_pct_change = (x2010_09/lag(x2010_09)-1))
+```
+
+```{r}
+Z_AR_PCT <- ZillowFay %>% 
+  select(region_name, x2010_09, x2020_01) %>% 
+  mutate(Pct_Chg=((x2020_01-x2010_09)/(x2010_09))) 
+Z_AR_PCT
+```
+
+
+```{r}
+#To quickly format into percents, load
+#install.packages("formattable")
+library(formattable)
+#
+Z_AR_PCT$Pct_Chg <- percent(Z_AR_PCT$Pct_Chg)
+Z_AR_PCT
+```
+```
+
+```{r}
+#Do some math - average value for Arkansas Sept 2010
+avg2010 <- mean(Z_AR_PCT$x2010_09, na.rm=TRUE)
+avg2010
+#Average value for Fayetteville, Sept. 2010= 875
+```
+
+```{r}
+#Do some math - average value for Arkansas Nov 2019
+avg2020 <- mean(Z_AR_PCT$x2020_01, na.rm=TRUE)
+avg2020
+#Average value for Fayetteville, Jan. 2020= 1074
+```
+
+```{r}
+avg <- ((avg2020-avg2010)/avg2010)*100
+
+avg <- round(avg, 2)
+#22.74
+avg
+```
+
+### Chart Data
+
+```{r}
+Z_AR_PCT %>% 
+  filter(Pct_Chg > .20) %>% 
+  ggplot(aes(x = reorder(region_name, Pct_Chg), y = Pct_Chg, fill = Pct_Chg)) +
+geom_col(position = "dodge", show.legend = FALSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_text(aes(label = Pct_Chg), hjust = -.5, size = 2) +
+  scale_y_continuous(limits=c(0, .45),labels = scales::percent) +
+  coord_flip() +
+  labs(title = "Fayetteville Real Estate Values, 2010-2020",
+       subtitle = "Statewide Average: 22.74% Increase. ",
+       caption = "Graphic by Brooke Tomlin, 4-16-2020",
+       y="Source: Zillow Housing Index",
+       x="")
+```
